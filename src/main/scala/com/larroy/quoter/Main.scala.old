@@ -1,0 +1,80 @@
+package com.openquant.trabot
+
+import java.awt.event.{MouseEvent, MouseListener}
+
+import org.jfree.chart.ChartFactory
+import org.jfree.chart.ChartPanel
+import org.jfree.chart.JFreeChart
+import org.jfree.chart.axis.{DateAxis, NumberAxis}
+import org.jfree.chart.plot.{CombinedRangeXYPlot, CombinedDomainXYPlot, PlotOrientation, XYPlot}
+import org.jfree.chart.renderer.xy.{StandardXYItemRenderer, CandlestickRenderer}
+import org.jfree.data.time.{Day, RegularTimePeriod}
+import org.jfree.data.time.ohlc.{OHLCSeriesCollection, OHLCSeries}
+import org.jfree.data.xy.{XYSeriesCollection, XYSeries, XYDataset, DefaultHighLowDataset}
+import org.jfree.ui.ApplicationFrame
+import org.jfree.ui.RefineryUtilities
+import rx.lang.scala.JavaConversions._
+import rx.schedulers.SwingScheduler
+
+import rx.swing.sources._
+import yahoofinance.YahooFinance
+
+/**
+ * @author piotr 26.04.15
+ */
+object Main extends ApplicationFrame("app title") {
+  val series = new OHLCSeries("series")
+  val seriesCollection = new OHLCSeriesCollection()
+  seriesCollection.addSeries(series)
+  series.add(new Day(3, 4, 2015), 5, 10, 4, 6)
+  series.add(new Day(4, 4, 2015), 3, 10, 4, 6)
+  series.add(new Day(5, 4, 2015), 1, 30, 4, 6)
+  series.add(new Day(6, 4, 2015), 6, 20, 2, 6)
+
+  //val chart = ChartFactory.createCandlestickChart("test", "time", "price", seriesCollection, true)
+  //chart.getXYPlot
+
+  val combinedDomainXYPlot = new CombinedRangeXYPlot()
+  val candleStickRenderer = new CandlestickRenderer()
+  val xyRenderer = new StandardXYItemRenderer()
+  val plot1 = new XYPlot(createDataSet().asInstanceOf[XYDataset], new NumberAxis("Price"), new NumberAxis("xyset"), xyRenderer)
+
+  xyRenderer.setPlotLines(false)
+  xyRenderer.setBaseShapesVisible(true)
+
+  val plot2 = new XYPlot(null, new DateAxis("time"), new NumberAxis("price"), null)
+  plot2.setDataset(2, seriesCollection)
+  plot2.setDataset(1, createDataSet())
+
+  plot2.setRenderer(2, candleStickRenderer)
+  plot2.setRenderer(1, xyRenderer)
+
+ // combinedDomainXYPlot.add(plot1, 1)
+  combinedDomainXYPlot.add(plot2, 2)
+
+  val chart = new JFreeChart(combinedDomainXYPlot)
+
+
+  def createDataSet(): XYSeriesCollection = {
+    val series = new XYSeries("testseries")
+    series.add(new Day(3,4,2015).getMiddleMillisecond(),1)
+    series.add(new Day(4,4,2015).getMiddleMillisecond(),2)
+    series.add(new Day(5,4,2015).getMiddleMillisecond(),3)
+    series.add(new Day(6,4,2015).getMiddleMillisecond(),4)
+    series.add(new Day(7,4,2015).getMiddleMillisecond(),8)
+    new XYSeriesCollection(series)
+  }
+
+  def main(args: Array[String]): Unit = {
+    val chartPanel = new ChartPanel(chart)
+    val observableMouseEvents = toScalaObservable(MouseEventSource.fromMouseEventsOf(chartPanel))
+    observableMouseEvents.subscribeOn(SwingScheduler.getInstance()).subscribe{ mouseEvent =>
+       println(s"Click ${mouseEvent.getX} ${mouseEvent.getY}")
+    }
+    setContentPane(chartPanel)
+    pack()
+    RefineryUtilities.centerFrameOnScreen(this)
+    setVisible(true)
+  }
+
+}
